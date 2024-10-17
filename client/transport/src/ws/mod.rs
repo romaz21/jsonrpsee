@@ -330,8 +330,8 @@ impl WsTransportClientBuilder {
 				client.set_headers(&headers);
 
 				// Perform the initial handshake.
-				match client.handshake().await {
-					Ok(ServerResponse::Accepted { .. }) => {
+				// match client.handshake().await {
+				// 	Ok(ServerResponse::Accepted { .. }) => {
 						tracing::debug!("Connection established to target: {:?}", target);
 						let mut builder = client.into_builder();
 						builder.set_max_message_size(self.max_response_size as usize);
@@ -340,71 +340,71 @@ impl WsTransportClientBuilder {
 							Sender { inner: sender, max_request_size: self.max_request_size },
 							Receiver { inner: receiver },
 						));
-					}
+				// 	}
 
-					Ok(ServerResponse::Rejected { status_code }) => {
-						tracing::debug!("Connection rejected: {:?}", status_code);
-						err = Some(Err(WsHandshakeError::Rejected { status_code }));
-					}
-					Ok(ServerResponse::Redirect { status_code, location }) => {
-						tracing::debug!("Redirection: status_code: {}, location: {}", status_code, location);
-						match location.parse::<Uri>() {
-							// redirection with absolute path => need to lookup.
-							Ok(uri) => {
-								// Absolute URI.
-								if uri.scheme().is_some() {
-									target = uri.try_into().map_err(|e| {
-										tracing::error!("Redirection failed: {:?}", e);
-										e
-									})?;
+				// 	Ok(ServerResponse::Rejected { status_code }) => {
+				// 		tracing::debug!("Connection rejected: {:?}", status_code);
+				// 		err = Some(Err(WsHandshakeError::Rejected { status_code }));
+				// 	}
+				// 	Ok(ServerResponse::Redirect { status_code, location }) => {
+				// 		tracing::debug!("Redirection: status_code: {}, location: {}", status_code, location);
+				// 		match location.parse::<Uri>() {
+				// 			// redirection with absolute path => need to lookup.
+				// 			Ok(uri) => {
+				// 				// Absolute URI.
+				// 				if uri.scheme().is_some() {
+				// 					target = uri.try_into().map_err(|e| {
+				// 						tracing::error!("Redirection failed: {:?}", e);
+				// 						e
+				// 					})?;
 
-									// Only build TLS connector if `wss` in redirection URL.
-									#[cfg(feature = "__tls")]
-									match target._mode {
-										Mode::Tls if connector.is_none() => {
-											connector = Some(build_tls_config(&self.certificate_store)?);
-										}
-										Mode::Tls => (),
-										// Drop connector if it was configured previously.
-										Mode::Plain => {
-											connector = None;
-										}
-									};
-								}
-								// Relative URI.
-								else {
-									// Replace the entire path_and_query if `location` starts with `/` or `//`.
-									if location.starts_with('/') {
-										target.path_and_query = location;
-									} else {
-										match target.path_and_query.rfind('/') {
-											Some(offset) => {
-												target.path_and_query.replace_range(offset + 1.., &location)
-											}
-											None => {
-												err = Some(Err(WsHandshakeError::Url(
-													format!(
-														"path_and_query: {location}; this is a bug it must contain `/` please open issue"
-													)
-													.into(),
-												)));
-												continue;
-											}
-										};
-									}
-									target.sockaddrs = sockaddrs;
-								}
-								break;
-							}
-							Err(e) => {
-								err = Some(Err(WsHandshakeError::Url(e.to_string().into())));
-							}
-						};
-					}
-					Err(e) => {
-						err = Some(Err(e.into()));
-					}
-				};
+				// 					// Only build TLS connector if `wss` in redirection URL.
+				// 					#[cfg(feature = "__tls")]
+				// 					match target._mode {
+				// 						Mode::Tls if connector.is_none() => {
+				// 							connector = Some(build_tls_config(&self.certificate_store)?);
+				// 						}
+				// 						Mode::Tls => (),
+				// 						// Drop connector if it was configured previously.
+				// 						Mode::Plain => {
+				// 							connector = None;
+				// 						}
+				// 					};
+				// 				}
+				// 				// Relative URI.
+				// 				else {
+				// 					// Replace the entire path_and_query if `location` starts with `/` or `//`.
+				// 					if location.starts_with('/') {
+				// 						target.path_and_query = location;
+				// 					} else {
+				// 						match target.path_and_query.rfind('/') {
+				// 							Some(offset) => {
+				// 								target.path_and_query.replace_range(offset + 1.., &location)
+				// 							}
+				// 							None => {
+				// 								err = Some(Err(WsHandshakeError::Url(
+				// 									format!(
+				// 										"path_and_query: {location}; this is a bug it must contain `/` please open issue"
+				// 									)
+				// 									.into(),
+				// 								)));
+				// 								continue;
+				// 							}
+				// 						};
+				// 					}
+				// 					target.sockaddrs = sockaddrs;
+				// 				}
+				// 				break;
+				// 			}
+				// 			Err(e) => {
+				// 				err = Some(Err(WsHandshakeError::Url(e.to_string().into())));
+				// 			}
+				// 		};
+				// 	}
+				// 	Err(e) => {
+				// 		err = Some(Err(e.into()));
+				// 	}
+				// };
 			}
 		}
 		err.unwrap_or(Err(WsHandshakeError::NoAddressFound(target.host)))
